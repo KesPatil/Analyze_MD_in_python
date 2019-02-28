@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb  6 10:46:52 2019
+
+@author: keshav
+"""
+# This code runs through all the protein.xtc files and outputs the 2500 structures 
+# in different bins of the free energy profile
+
+import numpy as np
+import time
+import MDAnalysis as mda
+from MDAnalysis.tests.datafiles import XTC, GRO
+import MDAnalysis.analysis.rms
+from MDAnalysis.analysis.rms import rmsd
+from MDAnalysis.analysis import align
+
+var_xtc = []
+# loading in the xtc files from the folder active_wt
+for i in range(4,13,1):
+    if i < 10:
+        i = '0'+str(i)    
+    var1 = '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/active_wt/s03-sim/protein'+str(i)+'.xtc'
+    var_xtc.append(var1) 
+
+# loading in the xtc files from the folder active_wt_replicate
+for i in range(4,14,1):
+    if i < 10:
+        i = '0'+str(i)
+    var1 = '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/active_wt_replicate/s03-sim/protein'+str(i)+'.xtc'
+    var_xtc.append(var1) 
+    
+# loading in the xtc files from the folder inactive_wt   
+for i in range(4,15,1):
+    if i < 10:
+        i = '0'+str(i)
+    var1 = '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/inactive_wt/s03-sim/protein'+str(i)+'.xtc'
+    var_xtc.append(var1) 
+    
+# loading in the xtc files from the folder inactive_wt_replicate
+for i in range(3,13,1):
+    if i < 10:
+        i = '0'+str(i)
+    #if i == '04':
+    #    continue
+    var1 = '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/inactive_wt_replicate/s03-sim/protein'+str(i)+'.xtc'    
+    var_xtc.append(var1) 
+ 
+      
+var_gro = '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/protein_alk.gro' 
+u = mda.Universe(var_gro, var_xtc)
+
+start = time.time()
+active_ref1 = '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/active_wt/s03-sim/active_wt_alk_CA_meta_min.pdb'
+inactive_ref1 =  '/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/active_wt/s03-sim/inactive_wt_alk_CA_meta_min.pdb'
+active_ref = mda.Universe(active_ref1)
+inactive_ref = mda.Universe(inactive_ref1)
+
+
+
+
+a   = u.select_atoms("protein and name CA")
+a_protein = u.select_atoms("protein")
+active_CA = active_ref.select_atoms("protein and name CA")
+activeCA  = active_CA.positions
+inactive_CA = inactive_ref.select_atoms("protein and name CA")
+inactiveCA = inactive_CA.positions
+
+
+
+# defining a 2-D array with elements that are indicator
+# We are dividing the free energy profile which is 0-6 in both x and y dimensions
+# into bins of size 0.1 in each dimension
+bin_var = np.zeros((60,60))
+
+# Computing the RMSD for each frame
+for j in range(0,len(u.trajectory)):
+    u.trajectory[j]
+    mobileCA = a.positions
+    mobile_protein = a_protein.positions
+    rmsd_active = rmsd(mobileCA, activeCA, superposition=True)
+    rmsd_inactive = rmsd(mobileCA, inactiveCA, superposition=True)
+    # rounding off 
+    rmsd_active1 = np.around(rmsd_active, decimals=2)
+    rmsd_inactive1 = np.around(rmsd_inactive, decimals=2)
+    rmsd_active2 = np.around(rmsd_active, decimals=1)
+    rmsd_inactive2 = np.around(rmsd_inactive, decimals=1)
+    
+    
+    if rmsd_active >= 5.9 or rmsd_inactive >= 5.9:
+        continue
+    
+    # round up and down 
+    if rmsd_active1 > rmsd_active2:
+        r_active_up =  rmsd_active2 + 0.1
+        r_active_down =  rmsd_active2
+    else:
+        r_active_up = rmsd_active2
+        r_active_down = rmsd_active2 - 0.1
+        
+    if rmsd_inactive1 > rmsd_inactive2:
+        r_inactive_up =  rmsd_inactive2 + 0.1
+        r_inactive_down =  rmsd_inactive2
+    else:
+        r_inactive_up = rmsd_inactive2
+        r_inactive_down = rmsd_inactive2 - 0.1
+    
+    
+   
+    
+    if bin_var[int(r_inactive_up*10)][int(r_active_up*10)] == 0:
+        u.atoms.write('/run/media/keshav/DELENDA_backup/alk_meta/meta_walkers_meta_struct/alk_2500/rmsd_x'+str(r_inactive_down)+'_'+str(r_inactive_up)+'_y'+str(r_active_down)+'_'+str(r_active_up)+'.gro', reindex=False)
+        bin_var[int(r_inactive_up*10)][int(r_active_up*10)] = 1
+        
+             
+end = time.time()
+print(end - start)
+
+
+
+
+
+
+
+
+    
